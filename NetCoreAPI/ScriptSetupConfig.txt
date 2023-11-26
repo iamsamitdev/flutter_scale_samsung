@@ -1,0 +1,606 @@
+.NET Core 7 Rest API JWT Auth with MSSQL 
+-----------------------------------------------------------------------------------------------
+Step 1: Create Database in MSSQL Server
+---
+Database name "FlutterInventory"
+
+Step 2: Query Table "Products" and "Category"
+---
+Products
+---
+USE [FlutterInventory]
+GO
+
+/****** Object:  Table [dbo].[products]    Script Date: 9/27/2022 2:03:20 AM ******/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE TABLE [dbo].[Products](
+[ProductID] [int] IDENTITY(1,1) NOT NULL,
+[CategoryID] [int] NULL,
+[ProductName] [nvarchar](50) NULL,
+[UnitPrice] [decimal](18, 0) NULL,
+[ProductPicture] [varchar](1024) NULL,
+[UnitInStock] [int] NULL,
+[CreatedDate] [datetime] NULL,
+[ModifiedDate] [datetime] NULL,
+PRIMARY KEY CLUSTERED 
+(
+[ProductID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+
+Category
+---
+USE [FlutterInventory]
+GO
+
+/****** Object:  Table [dbo].[Category]    Script Date: 9/27/2022 2:06:35 AM ******/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE TABLE [dbo].[Category](
+[CategoryID] [int] IDENTITY(1,1) NOT NULL,
+[CategoryName] [varchar](128) NOT NULL,
+[CategoryStatus] [int] NOT NULL,
+ CONSTRAINT [PK_Category] PRIMARY KEY CLUSTERED 
+(
+[CategoryID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+
+Step 3: Create dotnet 7 Web API
+---
+dotnet new webapi -n NetCoreSupalaiAPI
+
+Step 4: Install NuGet Packages
+---
+dotnet add package Microsoft.EntityFrameworkCore --version 7.0.5
+dotnet add package Microsoft.EntityFrameworkCore.Design --version 7.0.5
+dotnet add package Microsoft.EntityFrameworkCore.SqlServer --version 7.0.5
+dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer --version 7.0.5
+dotnet add package Microsoft.AspNetCore.Identity.EntityFrameworkCore --version 7.0.5
+
+
+Step 5: Create ApplicationDbContext.cs in Data/ApplicationDbContext.cs
+---
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+
+namespace NetCoreSupalaiAPI.Data;
+
+public class ApplicationDbContext : IdentityDbContext<IdentityUser>
+{
+    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
+    {
+
+    }
+
+    protected override void OnModelCreating(ModelBuilder builder)
+    {
+        base.OnModelCreating(builder);
+    }
+
+}
+
+
+Step 6: Config appsettings.json
+---
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=SAMITPCGENIUS\\SQLEXPRESS;Database=InventorySupalai;User ID=sa;Password=377040;MultipleActiveResultSets=True;Encrypt=True;TrustServerCertificate=True;Connection Timeout=30;"
+  },
+  "JWT": {
+    "ValidAudience": "http://localhost:5173",
+    "ValidIssuer": "http://localhost:5077",
+    "Secret": "JWTAuthenticationHIGHsecuredPasswordVVVp1OH7Xasd707"
+  },
+  "AllowedHosts": "*"
+}
+
+Step 7: Config Program.cs
+---
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+// using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
+using NetCoreSupalaiAPI.Data;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+
+// For Entity Framework
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// For Identity
+builder.Services.AddIdentity<IdentityUser, IdentityRole>()
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddDefaultTokenProviders();
+
+// Adding Authentication
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+
+// Adding Jwt Bearer
+.AddJwtBearer(options =>
+{
+    options.SaveToken = true;
+    options.RequireHttpsMetadata = false;
+    options.TokenValidationParameters = new TokenValidationParameters()
+    {
+        ValidateIssuerSigningKey = true,
+        ValidateAudience = false,
+        ValidateIssuer = false,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration.GetSection("JWT:Secret").Value!))
+    };
+});
+
+builder.Services.AddControllers();
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+
+// For Identity
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
+
+Step 8: ติดตั้ง dotnet-ef tools
+---
+dotnet tool install --global dotnet-ef
+หรืออัพเดท
+dotnet tool update --global dotnet-ef
+
+
+Step 9: สร้าง Migration ไฟล์ไว้ทำการ migrate ตัวฐานข้อมูล
+---
+dotnet ef migrations add initial
+
+Step 10: ทำการ Migrate ตัว Migration ให้เป็นฐานข้อมูล (จะได้ตารางการ auth ด้วย jwt ทั้งหมด 7 ตาราง)
+---
+dotnet ef database update
+dotnet ef database update --context ApplicationDbContext 
+
+Step 11: สร้างโฟลเดอร์เก็บ Models สำหรับ Authorization ด้วย JWT
+---
+Models
+
+Step 12: สร้างไฟล์ RegisterModel.cs ใน Models/RegisterModel.cs
+---
+using System.ComponentModel.DataAnnotations;
+
+namespace NetCoreSupalaiAPI.Models;
+
+public class RegisterModel
+{
+    [Required(ErrorMessage = "User Name is required")]
+    public string? Username { get; set; }
+
+    [EmailAddress]
+    [Required(ErrorMessage = "Email is required")]
+    public string? Email { get; set; }
+
+    [Required(ErrorMessage = "Password is required")]
+    public string? Password { get; set; }
+}
+
+Step 13: สร้างไฟล์ LoginModel.cs ใน Models/LoginModel.cs
+---
+using System.ComponentModel.DataAnnotations;
+
+namespace NetCoreSupalaiAPI.Models;
+
+public class LoginModel
+{
+    [Required(ErrorMessage = "User Name is required")]
+    public string? Username { get; set; }
+
+    [Required(ErrorMessage = "Password is required")]
+    public string? Password { get; set; }
+}
+
+Step 14: สร้างไฟล์ Models/UserRoles.cs
+---
+namespace NetCoreSupalaiAPI.Models;
+
+public static class UserRoles
+{
+    public const string Admin = "Admin";
+    public const string User = "User";
+}
+
+Step 15: สร้างไฟล์ Models/Response.cs
+---
+namespace NetCoreSupalaiAPI.Models;
+
+public class Response
+{
+    public string? Status { get; set; }
+    public string? Message { get; set; }
+}
+
+Step 16: สร้าง Controller ชื่อ "AuthenticateController"
+---
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using NetCoreSupalaiAPI.Models;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+
+namespace NetCoreSupalaiAPI.Controllers;
+
+[Route("api/[controller]")]
+[ApiController]
+public class AuthenticateController : ControllerBase
+{
+    private readonly UserManager<IdentityUser> _userManager;
+    private readonly RoleManager<IdentityRole> _roleManager;
+    private readonly IConfiguration _configuration;
+
+    public AuthenticateController(
+        UserManager<IdentityUser> userManager,
+        RoleManager<IdentityRole> roleManager,
+        IConfiguration configuration)
+    {
+        _userManager = userManager;
+        _roleManager = roleManager;
+        _configuration = configuration;
+    }
+
+    [HttpPost]
+    [Route("register")]
+    public async Task<IActionResult> Register([FromBody] RegisterModel model)
+    {
+        var userExists = await _userManager.FindByNameAsync(model.Username!);
+        if (userExists != null)
+            return StatusCode(StatusCodes.Status500InternalServerError, new Response { Status = "Error", Message = "User already exists!" });
+
+        IdentityUser user = new()
+        {
+            Email = model.Email,
+            SecurityStamp = Guid.NewGuid().ToString(),
+            UserName = model.Username
+        };
+        var result = await _userManager.CreateAsync(user, model.Password!);
+        if (!result.Succeeded)
+            return StatusCode(StatusCodes.Status500InternalServerError, new Response { Status = "Error", Message = "User creation failed! Please check user details and try again." });
+
+        return Ok(new Response { Status = "Success", Message = "User created successfully!" });
+    }
+
+    [HttpPost]
+    [Route("login")]
+    public async Task<IActionResult> Login([FromBody] LoginModel model)
+    {
+        var user = await _userManager.FindByNameAsync(model.Username!);
+        if (user != null && await _userManager.CheckPasswordAsync(user, model.Password!))
+        {
+            var userRoles = await _userManager.GetRolesAsync(user);
+
+            var authClaims = new List<Claim>
+            {
+                new Claim(ClaimTypes.Name, user.UserName!),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            };
+
+            foreach (var userRole in userRoles)
+            {
+                authClaims.Add(new Claim(ClaimTypes.Role, userRole));
+            }
+
+            var token = GetToken(authClaims);
+
+            return Ok(new
+            {
+                token = new JwtSecurityTokenHandler().WriteToken(token),
+                expiration = token.ValidTo
+            });
+        }
+        return Unauthorized();
+    }
+
+
+    [HttpPost]
+    [Route("register-admin")]
+    public async Task<IActionResult> RegisterAdmin([FromBody] RegisterModel model)
+    {
+        var userExists = await _userManager.FindByNameAsync(model.Username!);
+        if (userExists != null)
+            return StatusCode(StatusCodes.Status500InternalServerError, new Response { Status = "Error", Message = "User already exists!" });
+
+        IdentityUser user = new()
+        {
+            Email = model.Email,
+            SecurityStamp = Guid.NewGuid().ToString(),
+            UserName = model.Username
+        };
+        var result = await _userManager.CreateAsync(user, model.Password!);
+        if (!result.Succeeded)
+            return StatusCode(StatusCodes.Status500InternalServerError, new Response { Status = "Error", Message = "User creation failed! Please check user details and try again." });
+
+        if (!await _roleManager.RoleExistsAsync(UserRoles.Admin))
+            await _roleManager.CreateAsync(new IdentityRole(UserRoles.Admin));
+        if (!await _roleManager.RoleExistsAsync(UserRoles.User))
+            await _roleManager.CreateAsync(new IdentityRole(UserRoles.User));
+
+        if (await _roleManager.RoleExistsAsync(UserRoles.Admin))
+        {
+            await _userManager.AddToRoleAsync(user, UserRoles.Admin);
+        }
+        if (await _roleManager.RoleExistsAsync(UserRoles.Admin))
+        {
+            await _userManager.AddToRoleAsync(user, UserRoles.User);
+        }
+        return Ok(new Response { Status = "Success", Message = "User created successfully!" });
+    }
+
+
+    private JwtSecurityToken GetToken(List<Claim> authClaims)
+    {
+        var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JWT:Secret"]!));
+
+        var token = new JwtSecurityToken(
+            issuer: _configuration["JWT:ValidIssuer"],
+            audience: _configuration["JWT:ValidAudience"],
+            expires: DateTime.Now.AddHours(3),
+            claims: authClaims,
+            signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
+            );
+
+        return token;
+    }
+
+
+}
+
+
+Step 17: ทดสอบ Register
+---
+http://localhost:5156/api/Authenticate/register
+
+Payload:
+---
+{
+  "username": "iamsamit",
+  "email": "samit@email.com",
+  "password": "Samit@1234"
+}
+
+Step 18: ทดสอบ Login
+---
+http://localhost:5156/api/Authenticate/login
+
+Payload:
+---
+{
+  "username": "iamsamit",
+  "password": "Samit@1234"
+}
+
+จะได้ Result
+---
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1lIjoiaWFtc2FtaXQiLCJqdGkiOiI3M2VjMmY0MS1mZjZjLTRmZDMtYjE3NC01ZjUyNTU2OTc0YjEiLCJleHAiOjE2ODI1NDM2MjUsImlzcyI6Imh0dHA6Ly9sb2NhbGhvc3Q6NTA3NyIsImF1ZCI6Imh0dHA6Ly9sb2NhbGhvc3Q6NTE3MyJ9.lANzTP0MrHT5KwvbNqsGHt4xkaTD9QfG8BRr2wo9MHc",
+  "expiration": "2023-04-26T21:13:45Z"
+}
+
+
+Step 19: ทำการกำหนด Authorize ให้กับ Controller หรือ Method ที่ต้องการ
+---
+ตัวอย่างการกำหนด Authorize ที่ WeatherForecastController
+--
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using NetCoreSupalaiAPI.Models;
+
+namespace NetCoreSupalaiAPI.Controllers;
+
+[Authorize]
+[ApiController]
+[Route("api/[controller]")]
+public class WeatherForecastController : ControllerBase
+{
+    private static readonly string[] Summaries = new[]
+    {
+        "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
+    };
+
+    private readonly ILogger<WeatherForecastController> _logger;
+
+    public WeatherForecastController(ILogger<WeatherForecastController> logger)
+    {
+        _logger = logger;
+    }
+
+    [HttpGet]
+    [Route("GetWeatherForecast")]
+    public IEnumerable<WeatherForecast> Get()
+    {
+        return Enumerable.Range(1, 5).Select(index => new WeatherForecast
+        {
+            Date = DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
+            TemperatureC = Random.Shared.Next(-20, 55),
+            Summary = Summaries[Random.Shared.Next(Summaries.Length)]
+        })
+        .ToArray();
+    }
+}
+
+
+Step 20: สร้าง Scaffold-DbContext ผ่าน dotet CLI
+---
+dotnet ef dbcontext scaffold ^"Server=SAMITPCGENIUS\SQLEXPRESS;^
+Initial Catalog=InventorySupalai;^
+Persist Security Info=False;^
+User ID=sa;^
+Password=377040;^
+MultipleActiveResultSets=True;^
+Encrypt=True;^
+TrustServerCertificate=True;^
+Connection Timeout=30;^" ^
+Microsoft.EntityFrameworkCore.SqlServer ^
+--output-dir Models ^
+--context InventoryDBContext ^
+-t Products ^
+-t Category ^
+--use-database-names ^
+--no-onconfiguring ^
+--force
+
+Step 21: Config ApplicationDbContext.cs
+---
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using NetCoreSupalaiAPI.Models;
+
+namespace NetCoreSupalaiAPI.Data;
+
+public class ApplicationDbContext : IdentityDbContext<IdentityUser>
+{
+    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
+    {
+
+    }
+
+    public virtual DbSet<Category> Categories { get; set; }
+
+    public virtual DbSet<Product> Products { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder builder)
+    {
+        base.OnModelCreating(builder);
+    }
+
+}
+
+
+Step 22: สร้าง ProductsController.cs (CRUD)
+---
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using NetCoreSupalaiAPI.Data;
+using NetCoreSupalaiAPI.Models;
+
+namespace NetCoreSupalaiAPI.Controllers;
+
+[Authorize]
+[ApiController]
+[Route("api/[controller]")]
+
+public class ProductsController : ControllerBase
+{
+    private readonly ApplicationDbContext _context;
+
+    public ProductsController(ApplicationDbContext context)
+    {
+        _context = context;
+    }
+
+    // Read all products
+    [HttpGet]
+    public ActionResult<Product> GetProducts()
+    {
+        // LINQ
+        // แบบอ่านทั้งหมด
+        var allProducts = _context.Products.ToList();
+
+        // แบบอ่านที่มีเงื่อนไข
+        // var products = _context.Products.Where(p => p.UnitPrice > 100).ToList();
+
+        return Ok(allProducts);
+    }
+
+    // Read product by id
+    [HttpGet("{id}")]
+    public ActionResult<Product> GetProduct(int id)
+    {
+        var product = _context.Products.FirstOrDefault(p => p.ProductID == id);
+
+        if (product == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(product);
+    }
+
+    // Create new Product
+    [HttpPost]
+    public ActionResult CreateProduct(Product product)
+    {
+        _context.Products.Add(product);
+        _context.SaveChanges();
+        return Ok(product.ProductID);
+    }
+
+    // Update Product
+    [HttpPut]
+    public ActionResult Update(Product product)
+    {
+        if (product == null)
+        {
+            return NotFound();
+        }
+
+        _context.Update(product);
+        _context.SaveChanges();
+
+        return Ok(product);
+    }
+
+    // Delete Product
+    [HttpDelete("{id}")]
+    public ActionResult Delete(int id)
+    {
+        var productToDelete = _context.Products.Where(p => p.ProductID == id).FirstOrDefault();
+        if (productToDelete == null)
+        {
+            return NotFound();
+        }
+
+        _context.Products.Remove(productToDelete);
+        _context.SaveChanges();
+        return NoContent();
+    }
+
+}

@@ -1,0 +1,211 @@
+.NET Core 8 Rest API JWT Auth with MSSQL 
+-----------------------------------------------------------------------------------------------
+Step 1: Create Database in MSSQL Server
+---
+Database name "FlutterInventory"
+
+Step 2: Query Create Table "Products" and "Category"
+---
+Products
+---
+USE [FlutterInventory]
+GO
+
+/****** Object:  Table [dbo].[products]    Script Date: 9/27/2022 2:03:20 AM ******/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE TABLE [dbo].[Products](
+[ProductID] [int] IDENTITY(1,1) NOT NULL,
+[CategoryID] [int] NULL,
+[ProductName] [nvarchar](50) NULL,
+[UnitPrice] [decimal](18, 0) NULL,
+[ProductPicture] [varchar](1024) NULL,
+[UnitInStock] [int] NULL,
+[CreatedDate] [datetime] NULL,
+[ModifiedDate] [datetime] NULL,
+PRIMARY KEY CLUSTERED 
+(
+[ProductID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+
+Category
+---
+USE [FlutterInventory]
+GO
+
+/****** Object:  Table [dbo].[Category]    Script Date: 9/27/2022 2:06:35 AM ******/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE TABLE [dbo].[Category](
+[CategoryID] [int] IDENTITY(1,1) NOT NULL,
+[CategoryName] [varchar](128) NOT NULL,
+[CategoryStatus] [int] NOT NULL,
+ CONSTRAINT [PK_Category] PRIMARY KEY CLUSTERED 
+(
+[CategoryID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+
+Step 3: Query Insert Data to Table "Products" and "Category"
+---
+Category
+---
+USE FlutterInventory
+GO
+
+INSERT INTO Category (
+    CategoryName,
+    CategoryStatus
+)
+
+VALUES
+(
+    'Mobile',
+    1
+),
+(
+    'Tablet',
+    1
+),
+(
+    'Smart Watch',
+    1
+),
+(
+    'Labtop',
+    1
+);
+
+
+Products
+---
+USE FlutterInventory
+GO
+
+INSERT INTO Products (
+    CategoryID,
+    ProductName,
+    UnitPrice,
+    ProductPicture,
+    UnitInStock,
+    CreatedDate,
+    ModifiedDate
+)
+
+VALUES
+(
+    1,
+    'iPhone 13 Pro Max',
+    55000,
+    'https://www.mxphone.com/wp-content/uploads/2021/04/41117-79579-210401-iPhone12ProMax-xl-1200x675.jpg',
+    3,
+    '2021-11-22T00:00:00',
+    '2021-11-22T00:00:00'
+),
+(
+    2,
+    'iPad Pro 2021',
+    18500,
+    'https://cdn.siamphone.com/spec/apple/images/ipad_pro_12.9%E2%80%91inch/com_1.jpg',
+    10,
+    '2021-11-20T00:00:00',
+    '2021-11-20T00:00:00'
+),
+(
+    3,
+    'Airpods Pro',
+    12500,
+    'https://www.avtechguide.com/wp-content/uploads/2020/11/leaked-apple-airpods-pro-generation2-info_01-800x445.jpg',
+    5,
+    '2021-11-10T10:30:00',
+    '2021-11-12T10:30:00'
+),
+(
+    4,
+    'Macbook Pro M1',
+    45000,
+    'https://cdn.mos.cms.futurecdn.net/iYCQTPgBSdDmkYESfPkunh.jpg',
+    10,
+    '2021-11-15T10:30:00',
+    '2021-11-15T10:30:00'
+);
+
+Step 4: Config to connect MSSQL server in file applications.json
+---
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=127.0.0.1,1344\\Developer;Database=FlutterInventory;User ID=sa;Password=Samit!=377040;MultipleActiveResultSets=True;Encrypt=True;TrustServerCertificate=True;Connection Timeout=30;"
+  },
+  "JWT": {
+    "ValidAudience": "*",
+    "ValidIssuer": "*",
+    "Secret": "JWTAuthenticationHIGHsecuredPasswordVVVp1OH7Xasd707"
+  },
+  "AllowedHosts": "*"
+}
+
+
+Step 5: ทำการ Migrate ตัว Migration ให้เป็นฐานข้อมูล (จะได้ตารางการ auth ด้วย jwt ทั้งหมด 7 ตาราง)
+---
+ติดตั้ง dotnet-ef tools
+---
+dotnet tool install --global dotnet-ef
+
+หรืออัพเดท
+----
+dotnet tool update --global dotnet-ef
+
+รันคำสั่ง Migrate
+----
+dotnet ef database update --context ApplicationDbContext
+
+ทดสอบรันโปรเจ็กต์
+---
+dotnet watch run
+
+Step 6: ทดสอบ Register
+---
+http://localhost:5156/api/Authenticate/register
+
+Payload:
+---
+{
+  "username": "iamsamit",
+  "email": "samit@email.com",
+  "password": "Samit@1234"
+}
+
+Step 7: ทดสอบ Login
+---
+http://localhost:5156/api/Authenticate/login
+
+Payload:
+---
+{
+  "username": "iamsamit",
+  "password": "Samit@1234"
+}
+
+จะได้ Result
+---
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1lIjoiaWFtc2FtaXQiLCJqdGkiOiI3M2VjMmY0MS1mZjZjLTRmZDMtYjE3NC01ZjUyNTU2OTc0YjEiLCJleHAiOjE2ODI1NDM2MjUsImlzcyI6Imh0dHA6Ly9sb2NhbGhvc3Q6NTA3NyIsImF1ZCI6Imh0dHA6Ly9sb2NhbGhvc3Q6NTE3MyJ9.lANzTP0MrHT5KwvbNqsGHt4xkaTD9QfG8BRr2wo9MHc",
+  "expiration": "2023-04-26T21:13:45Z"
+}
